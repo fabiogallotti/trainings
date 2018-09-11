@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+"""
+A simple Python command-line application that makes requests to the Google Calendar API.
+
+@author: Fabio
+"""
+
 from __future__ import print_function
 import datetime
 from googleapiclient.discovery import build
@@ -22,8 +29,8 @@ def main():
     now = datetime.datetime.utcnow().isoformat() + 'Z' # 'Z' indicates UTC time
     print('Getting the upcoming 10 events')
     events_result = service.events().list(calendarId='primary', timeMin=now,
-                                        maxResults=10, singleEvents=True,
-                                        orderBy='startTime').execute()
+                                          maxResults=10, singleEvents=True,
+                                          orderBy='startTime').execute()
     events = events_result.get('items', [])
 
     if not events:
