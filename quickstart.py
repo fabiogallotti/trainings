@@ -12,7 +12,7 @@ from httplib2 import Http
 from oauth2client import file, client, tools
 
 # If modifying these scopes, delete the file token.json.
-SCOPES = 'https://www.googleapis.com/auth/calendar.readonly'
+SCOPES = 'https://www.googleapis.com/auth/calendar'
 
 def main():
     """Shows basic usage of the Google Calendar API.
@@ -38,6 +38,21 @@ def main():
     for event in events:
         start = event['start'].get('dateTime', event['start'].get('date'))
         print(start, event['summary'])
+
+    event = {
+        'summary': 'Prova',
+        'description': 'Creato da python',
+        'start': {
+            'date': '2018-09-13',
+        },
+        'end': {
+            'date': '2018-09-13',
+        },
+    }
+
+    event = service.events().insert(calendarId='primary', body=event).execute()
+    print("Event created: %s" % (event.get('htmlLink')))
+
 
 if __name__ == '__main__':
     main()
