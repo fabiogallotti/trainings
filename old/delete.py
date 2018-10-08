@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-A simple Python script that takes deletes events from Google Calendar.
+A simple Python script that deletes events from Google Calendar.
 
 @author: Fabio
 """

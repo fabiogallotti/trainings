@@ -5,6 +5,7 @@ to Google Calendar.
 
 @author: Fabio
 """
+
 from __future__ import print_function
 from collections import defaultdict
 import argparse
@@ -105,5 +106,3 @@ if __name__ == '__main__':
     ARG = parse_args()
     trainings = extract(ARG.url)
     upload(trainings, int(ARG.day), int(ARG.month), int(ARG.year))
-
-#trainingv2.py -u "https://www.repubblica.it/sport/running/schede/2016/11/24/news/mezza_maratone_km_21_097-152727929/" -d 27 -m 09 -y 2018
