@@ -18,6 +18,7 @@ from oauth2client import file, client, tools
 
 # If modifying these scopes, delete the file token.json.
 SCOPES = 'https://www.googleapis.com/auth/calendar'
+MAX_EVENT = 100
 
 def parse_args():
     """
@@ -25,10 +26,11 @@ def parse_args():
     """
     parser = argparse.ArgumentParser()
     parser.add_argument("-u", "--url", help="Url to be scraped")
-    parser.add_argument("-d", "--day", help="Starting day")
-    parser.add_argument("-m", "--month", help="Starting month")
-    parser.add_argument("-y", "--year", help="Starting year")
+    parser.add_argument("-d", "--day", type=int, help="Starting day")
+    parser.add_argument("-m", "--month", type=int, help="Starting month")
+    parser.add_argument("-y", "--year", type=int, help="Starting year")
     parser.add_argument("--delete", action='store_true', default=False, help="Delete events")
+    parser.add_argument("--today", action='store_true', default=False, help="Delete up to today")
     args = parser.parse_args()
     return args
 
@@ -56,7 +58,7 @@ class Training:
     """
     Training.
     """
-    def __init__(self, day, month, year, url=None):
+    def __init__(self, day, month, year, url=False, today=False):
         """
         Initialize a training object.
         """
@@ -64,6 +66,7 @@ class Training:
         self.month = month
         self.year = year
         self.url = url
+        self.today = today
         self.data = defaultdict(dict)
 
     def extract(self):
@@ -123,12 +126,17 @@ class Training:
         service = build('calendar', 'v3', http=creds.authorize(Http()))
 
         # Call the Calendar API
-        now = datetime.datetime(year=self.year, month=self.month, day=self.day-1).isoformat() + 'Z'
-        #now = datetime.datetime.utcnow().isoformat() + 'Z' # 'Z' indicates UTC time
+        start = datetime.datetime(year=self.year, month=self.month, day=self.day-1).isoformat() + 'Z'
 
-        events_result = service.events().list(calendarId='primary', timeMin=now,
-                                              maxResults=100, singleEvents=True,
-                                              orderBy='startTime').execute()
+        if self.today:
+            end = datetime.datetime.utcnow().isoformat() + 'Z' # 'Z' indicates UTC time
+            events_result = service.events().list(calendarId='primary', timeMin=start,
+                                                  timeMax=end, singleEvents=True,
+                                                  orderBy='startTime').execute()
+        else:
+            events_result = service.events().list(calendarId='primary', timeMin=start,
+                                                  maxResults=MAX_EVENT, singleEvents=True,
+                                                  orderBy='startTime').execute()
         events = events_result.get('items', [])
 
         for event in events:
@@ -136,7 +144,7 @@ class Training:
                 if event['description'] == 'Created using python':
                     eventId = event['id']
                     try:
-                        service.events().delete(calendarId='primary', eventId = eventId).execute()
+                        service.events().delete(calendarId='primary', eventId=eventId).execute()
                         print("Event deleted.")
                     except:
                         print("Event not deleted.")
@@ -146,10 +154,10 @@ class Training:
 if __name__ == '__main__':
     ARG = parse_args()
     if ARG.delete:
-        trainings = Training(int(ARG.day), int(ARG.month), int(ARG.year))
+        trainings = Training(ARG.day, ARG.month, ARG.year, today=ARG.today)
         trainings.delete()
     else:
-        trainings = Training(int(ARG.day), int(ARG.month), int(ARG.year), ARG.url)
+        trainings = Training(ARG.day, ARG.month, ARG.year, url=ARG.url)
         trainings.upload()
 
 #python trainings.py -u "https://www.repubblica.it/sport/running/schede/2016/11/24/news/mezza_maratone_km_21_097-152727929/" -d 03 -m 09 -y 2018
