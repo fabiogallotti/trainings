@@ -1,8 +1,24 @@
+"""
+Test for the trainings script.
+
+@author: Fabio
+"""
+
+import unittest
 from trainings import Training
 
+D = 27
+M = 6
+Y = 1993
 
-def test_training():
-    training = Training(27, 6, 1993)
-    assert training.day is 27
-    assert training.month == 6
-    assert training.year == 1993
+
+class TestTraining(unittest.TestCase):
+    def setUp(self):
+        self.training = Training(D, M, Y)
+
+    def test_day(self):
+        self.assertEqual(self.training.day, D)
+    def test_month(self):
+        self.assertEqual(self.training.month, M)
+    def test_year(self):
+        self.assertEqual(self.training.year, Y)
