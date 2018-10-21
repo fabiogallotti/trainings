@@ -39,6 +39,10 @@ jobs:
             - ./venv
           key: v1-dependencies-{{ checksum "requirements.txt" }}
 
+      # Setup Code Climate test-reporter
+      - run: curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
+      - run: chmod +x ./cc-test-reporter
+      - run: ./cc-test-reporter before-build
       # run tests!
       # this example uses Django's built-in test-runner
       # other common Python testing frameworks include pytest and nose
@@ -48,7 +52,12 @@ jobs:
           name: run tests
           command: |
             . venv/bin/activate
-            pytest
+            py.test --cov=trainings --cov-report xml:coverage.xml
+
+      # Send test coverage to Code Climate
+      - run: ./cc-test-reporter format-coverage -t coverage.py
+      - run: ./cc-test-reporter upload-coverage
+      - run: ./cc-test-reporter after-build --exit-code $?
 
       - store_artifacts:
           path: test-reports
