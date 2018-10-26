@@ -54,51 +54,68 @@ def create_event(summary, start, day, week):
     }
     return event
 
+def scrape_web_page(url):
+    """ Scraping web page using BeautifulSoup. """
+    req = Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+    html = urlopen(req)
+    soup = BeautifulSoup(html, "lxml")
+    return soup
+
+def get_weekdays_from_header(table):
+    """ Get week days from the header of an HTML table. """
+    days = table.find_all("th")
+    try:
+        week = [days[i].text for i in range(len(days))]
+    except IndexError:
+        pass
+    return week
+
+def get_data_from_web():
+    """
+    Get trainings data from the web.
+    """
+    soup = scrape_web_page(ARG.url)
+    table = soup.find("table")
+    return table
+
+
 class Training:
     """
     Training.
     """
-    def __init__(self, day, month, year, url=False, today=False):
+    def __init__(self, day, month, year):
         """
         Initialize a training object.
         """
         self.day = day
         self.month = month
         self.year = year
-        self.url = url
-        self.today = today
         self.data = defaultdict(dict)
 
-    def extract(self):
-        """
-        Extract trainings from the web.
-        """
-        req = Request(self.url, headers={'User-Agent': 'Mozilla/5.0'})
-        html = urlopen(req)
-        soup = BeautifulSoup(html, "lxml")
-        table = soup.find("table")
-        days = table.find_all("th")
-        try:
-            week = [days[i].text for i in range(len(days))]
-        except IndexError:
-            pass
+    def insert_data(self, table, week):
+        """ Insert data in text format. """
         num_col = 1
         for row in table.find_all("tr"):
             col = row.find_all("td")
-            num_day = 1
             try:
-                for day in week[2:len(week)]:
-                    self.data[num_day][num_col] = col[num_day].text
-                    num_day += 1
+                for day in enumerate(week[2:len(week)], start=1):
+                    self.data[day[0]][num_col] = col[day[0]].text
                 num_col += 1
             except IndexError:
                 pass
+
+    def create_dict_of_dict(self):
+        """ Create dictionary of dictionary from data from the web. """
+        table = get_data_from_web()
+        week = get_weekdays_from_header(table)
+        self.insert_data(table, week)
 
     def upload(self):
         """
         Upload the trainings to Google Calendar.
         """
-        self.extract()
+        self.create_dict_of_dict()
+
         store = file.Storage('token.json')
         creds = store.get()
         if not creds or creds.invalid:
@@ -114,6 +131,7 @@ class Training:
                 event = service.events().insert(calendarId='primary', body=event).execute()
                 print("Event created: %s" % (event.get('htmlLink')))
 
+
     def delete(self):
         """
         Delete the events.
@@ -128,7 +146,7 @@ class Training:
         # Call the Calendar API
         start = datetime.datetime(year=self.year, month=self.month, day=self.day-1).isoformat() + 'Z'
 
-        if self.today:
+        if ARG.today:
             end = datetime.datetime.utcnow().isoformat() + 'Z' # 'Z' indicates UTC time
             events_result = service.events().list(calendarId='primary', timeMin=start,
                                                   timeMax=end, singleEvents=True,
@@ -153,11 +171,13 @@ class Training:
 
 if __name__ == '__main__':
     ARG = parse_args()
-    if ARG.delete:
-        trainings = Training(ARG.day, ARG.month, ARG.year, today=ARG.today)
-        trainings.delete()
-    else:
-        trainings = Training(ARG.day, ARG.month, ARG.year, url=ARG.url)
-        trainings.upload()
+    TRAINING = Training(ARG.day, ARG.month, ARG.year)
 
-#python trainings.py -u "https://www.repubblica.it/sport/running/schede/2016/11/24/news/mezza_maratone_km_21_097-152727929/" -d 03 -m 09 -y 2018
+    if ARG.delete:
+        TRAINING.delete()
+    else:
+        TRAINING.upload()
+
+#python trainings.py -u
+#"https://www.repubblica.it/sport/running/schede/2016/11/24/news/mezza_maratone_km_21_097-152727929/"
+#-d 03 -m 09 -y 2018
