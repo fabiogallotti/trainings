@@ -8,13 +8,13 @@ import pytest
 from src.trainings import Training, create_event
 
 EVENT = {
-    'summary': 'Hello world',
-    'description': 'Created using python',
-    'start': {
-        'date': '2000-02-01',
+    "summary": "Hello world",
+    "description": "Created using Python",
+    "start": {
+        "date": "2000-02-01",
     },
-    'end': {
-        'date': '2000-02-01',
+    "end": {
+        "date": "2000-02-01",
     },
 }
 

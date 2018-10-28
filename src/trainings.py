@@ -18,7 +18,7 @@ from oauth2client import file, client, tools
 
 # If modifying these scopes, delete the file token.json.
 SCOPES = "https://www.googleapis.com/auth/calendar"
-DESCRIPTION = "Created by Python"
+DESCRIPTION = "Created using Python"
 
 
 def parse_args():
