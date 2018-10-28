@@ -36,9 +36,7 @@ def parse_args():
     return args
 
 def create_event(summary, start, day, week):
-    """
-    Create the event.
-    """
+    """ Create the event. """
     start = datetime.datetime.strptime(start, "%Y-%m-%d")
     diff = datetime.timedelta(days=7*(week-1)+day-1)
 
@@ -87,13 +85,13 @@ def access_to_calendar():
     service = build("calendar", "v3", http=creds.authorize(Http()))
     return service
 
-def get_events(service):
-    """ Return the events. """
+def get_access_to_events(service):
+    """ Get access to the events. """
     return service.events()
 
 def list_event(service, start, time_max=None):
-    """Get the list of events, with or without a timeMax."""
-    service_events = get_events(service)
+    """ Get the list of events, with or without a timeMax. """
+    service_events = get_access_to_events(service)
     event_list = service_events.list(calendarId="primary",
                                      timeMin=start,
                                      timeMax=time_max,
@@ -101,14 +99,24 @@ def list_event(service, start, time_max=None):
                                      orderBy="startTime").execute()
     return event_list
 
+def get_items(service, year, month, day):
+    """ Get items to delete. """
+    start = datetime.datetime(year=year,
+                              month=month,
+                              day=day-1).isoformat() + "Z"
+
+    if ARG.today:
+        end = datetime.datetime.utcnow().isoformat() + "Z" # "Z" indicates UTC time
+        events_result = list_event(service, start, end)
+    else:
+        events_result = list_event(service, start)
+    items = events_result.get("items", [])
+    return items
+
 class Training:
-    """
-    Training.
-    """
+    """ Training. """
     def __init__(self, day, month, year):
-        """
-        Initialize a training object.
-        """
+        """ Initialize a training object. """
         self.day = day
         self.month = month
         self.year = year
@@ -142,7 +150,7 @@ class Training:
         for day, weeks in self.data.items():
             for week in weeks:
                 event = create_event(self.data[day][week], start, day, week)
-                service_events = get_events(service)
+                service_events = get_access_to_events(service)
                 event = service_events.insert(calendarId="primary", body=event).execute()
                 print("Event created: %s" % (event.get("htmlLink")))
 
@@ -150,31 +158,20 @@ class Training:
         """ Delete the events. """
         service = access_to_calendar()
 
-        start = datetime.datetime(year=self.year,
-                                  month=self.month,
-                                  day=self.day-1).isoformat() + "Z"
-
-        if ARG.today:
-            end = datetime.datetime.utcnow().isoformat() + "Z" # "Z" indicates UTC time
-            events_result = list_event(service, start, end)
-        else:
-            events_result = list_event(service, start)
-
-        items = events_result.get("items", [])
+        items = get_items(service, self.year, self.month, self.day)
 
         for item in items:
             try:
                 if item["description"] == DESCRIPTION:
                     event_id = item["id"]
                     try:
-                        service_events = get_events(service)
+                        service_events = get_access_to_events(service)
                         service_events.delete(calendarId="primary", eventId=event_id).execute()
                         print("Event deleted.")
                     except:
                         print("Event not deleted.")
             except:
                 pass
-
 
 if __name__ == "__main__":
     ARG = parse_args()
