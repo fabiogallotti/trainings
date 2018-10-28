@@ -17,8 +17,9 @@ from httplib2 import Http
 from oauth2client import file, client, tools
 
 # If modifying these scopes, delete the file token.json.
-SCOPES = 'https://www.googleapis.com/auth/calendar'
-MAX_EVENT = 100
+SCOPES = "https://www.googleapis.com/auth/calendar"
+DESCRIPTION = "Created by Python"
+
 
 def parse_args():
     """
@@ -29,8 +30,8 @@ def parse_args():
     parser.add_argument("-d", "--day", type=int, help="Starting day")
     parser.add_argument("-m", "--month", type=int, help="Starting month")
     parser.add_argument("-y", "--year", type=int, help="Starting year")
-    parser.add_argument("--delete", action='store_true', default=False, help="Delete events")
-    parser.add_argument("--today", action='store_true', default=False, help="Delete up to today")
+    parser.add_argument("--delete", action="store_true", default=False, help="Delete events")
+    parser.add_argument("--today", action="store_true", default=False, help="Delete up to today")
     args = parser.parse_args()
     return args
 
@@ -43,20 +44,20 @@ def create_event(summary, start, day, week):
 
     day = str((start + diff).date())
     event = {
-        'summary': summary,
-        'description': 'Created using python',
-        'start': {
-            'date': day,
+        "summary": summary,
+        "description": DESCRIPTION,
+        "start": {
+            "date": day,
         },
-        'end': {
-            'date': day,
+        "end": {
+            "date": day,
         },
     }
     return event
 
 def scrape_web_page(url):
     """ Scraping web page using BeautifulSoup. """
-    req = Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+    req = Request(url, headers={"User-Agent": "Mozilla/5.0"})
     html = urlopen(req)
     soup = BeautifulSoup(html, "lxml")
     return soup
@@ -71,13 +72,34 @@ def get_weekdays_from_header(table):
     return week
 
 def get_data_from_web():
-    """
-    Get trainings data from the web.
-    """
+    """ Get trainings data from the web. """
     soup = scrape_web_page(ARG.url)
     table = soup.find("table")
     return table
 
+def access_to_calendar():
+    """ Get access to Google Calendar. """
+    store = file.Storage("token.json")
+    creds = store.get()
+    if not creds or creds.invalid:
+        flow = client.flow_from_clientsecrets("credentials.json", SCOPES)
+        creds = tools.run_flow(flow, store)
+    service = build("calendar", "v3", http=creds.authorize(Http()))
+    return service
+
+def get_events(service):
+    """ Return the events. """
+    return service.events()
+
+def list_event(service, start, time_max=None):
+    """Get the list of events, with or without a timeMax."""
+    service_events = get_events(service)
+    event_list = service_events.list(calendarId="primary",
+                                     timeMin=start,
+                                     timeMax=time_max,
+                                     singleEvents=True,
+                                     orderBy="startTime").execute()
+    return event_list
 
 class Training:
     """
@@ -111,73 +133,58 @@ class Training:
         self.insert_data(table, week)
 
     def upload(self):
-        """
-        Upload the trainings to Google Calendar.
-        """
+        """ Upload the trainings to Google Calendar. """
         self.create_dict_of_dict()
-
-        store = file.Storage('token.json')
-        creds = store.get()
-        if not creds or creds.invalid:
-            flow = client.flow_from_clientsecrets('credentials.json', SCOPES)
-            creds = tools.run_flow(flow, store)
-        service = build('calendar', 'v3', http=creds.authorize(Http()))
+        service = access_to_calendar()
 
         start = datetime.date(year=self.year, month=self.month, day=self.day).isoformat()
 
         for day, weeks in self.data.items():
             for week in weeks:
                 event = create_event(self.data[day][week], start, day, week)
-                event = service.events().insert(calendarId='primary', body=event).execute()
-                print("Event created: %s" % (event.get('htmlLink')))
-
+                service_events = get_events(service)
+                event = service_events.insert(calendarId="primary", body=event).execute()
+                print("Event created: %s" % (event.get("htmlLink")))
 
     def delete(self):
-        """
-        Delete the events.
-        """
-        store = file.Storage('token.json')
-        creds = store.get()
-        if not creds or creds.invalid:
-            flow = client.flow_from_clientsecrets('credentials.json', SCOPES)
-            creds = tools.run_flow(flow, store)
-        service = build('calendar', 'v3', http=creds.authorize(Http()))
+        """ Delete the events. """
+        service = access_to_calendar()
 
-        # Call the Calendar API
-        start = datetime.datetime(year=self.year, month=self.month, day=self.day-1).isoformat() + 'Z'
+        start = datetime.datetime(year=self.year,
+                                  month=self.month,
+                                  day=self.day-1).isoformat() + "Z"
 
         if ARG.today:
-            end = datetime.datetime.utcnow().isoformat() + 'Z' # 'Z' indicates UTC time
-            events_result = service.events().list(calendarId='primary', timeMin=start,
-                                                  timeMax=end, singleEvents=True,
-                                                  orderBy='startTime').execute()
+            end = datetime.datetime.utcnow().isoformat() + "Z" # "Z" indicates UTC time
+            events_result = list_event(service, start, end)
         else:
-            events_result = service.events().list(calendarId='primary', timeMin=start,
-                                                  maxResults=MAX_EVENT, singleEvents=True,
-                                                  orderBy='startTime').execute()
-        events = events_result.get('items', [])
+            events_result = list_event(service, start)
 
-        for event in events:
+        items = events_result.get("items", [])
+
+        for item in items:
             try:
-                if event['description'] == 'Created using python':
-                    eventId = event['id']
+                if item["description"] == DESCRIPTION:
+                    event_id = item["id"]
                     try:
-                        service.events().delete(calendarId='primary', eventId=eventId).execute()
+                        service_events = get_events(service)
+                        service_events.delete(calendarId="primary", eventId=event_id).execute()
                         print("Event deleted.")
                     except:
                         print("Event not deleted.")
             except:
                 pass
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     ARG = parse_args()
     TRAINING = Training(ARG.day, ARG.month, ARG.year)
 
-    if ARG.delete:
+    if ARG.delete or ARG.today:
         TRAINING.delete()
     else:
         TRAINING.upload()
 
 #python trainings.py -u
-#"https://www.repubblica.it/sport/running/schede/2016/11/24/news/mezza_maratone_km_21_097-152727929/"
+#"https://www.repubblica.it/sport/running/schede/2016/11/24/news/mezza_maratone_km_21_097-152727929"
 #-d 03 -m 09 -y 2018
