@@ -113,6 +113,17 @@ def get_items(service, year, month, day):
     items = events_result.get("items", [])
     return items
 
+def delete_event_with_description(service, item):
+    """ Delete event with particular description. """
+    try:
+        if item["description"] == DESCRIPTION:
+            event_id = item["id"]
+            service_events = get_access_to_events(service)
+            service_events.delete(calendarId="primary", eventId=event_id).execute()
+            print("Event deleted.")
+    except:
+        print("No events found.")
+
 class Training:
     """ Training. """
     def __init__(self, day, month, year):
@@ -161,17 +172,7 @@ class Training:
         items = get_items(service, self.year, self.month, self.day)
 
         for item in items:
-            try:
-                if item["description"] == DESCRIPTION:
-                    event_id = item["id"]
-                    try:
-                        service_events = get_access_to_events(service)
-                        service_events.delete(calendarId="primary", eventId=event_id).execute()
-                        print("Event deleted.")
-                    except:
-                        print("Event not deleted.")
-            except:
-                pass
+            delete_event_with_description(service, item)
 
 if __name__ == "__main__":
     ARG = parse_args()
